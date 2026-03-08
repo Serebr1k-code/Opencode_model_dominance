@@ -215,6 +215,33 @@ const selectWorkers = (pool, tasks) => {
   return selected
 }
 
+const waitForReports = async ({
+  assignments,
+  indicesToWait,
+  sessionID,
+  timeoutMs = 120000,
+  pollMs = 1000,
+}) => {
+  const deadline = Date.now() + timeoutMs
+  const required = new Set(indicesToWait)
+
+  while (Date.now() < deadline) {
+    let ready = 0
+    for (const { worker } of assignments) {
+      if (!required.has(worker.index)) continue
+      const report = getWorkerReport(sessionID, worker.sessionID)
+      if (report) ready += 1
+    }
+    if (ready === required.size) return
+    await new Promise((resolve) => setTimeout(resolve, pollMs))
+  }
+
+  throw new Error(
+    `Timed out waiting for swarm reports (${[...required].join(",")}). ` +
+      "Workers must call swarm_report.",
+  )
+}
+
 const formatReports = (reports, providerName, modelName) => {
   if (!reports.length) {
     throw new Error(
@@ -289,6 +316,12 @@ export const SwarmPlugin = async ({ client }) => {
           const indicesToWait = Array.isArray(waitFor) && waitFor.length
             ? waitFor
             : assignments.map(({ worker }) => worker.index)
+
+          await waitForReports({
+            assignments,
+            indicesToWait,
+            sessionID: context.sessionID,
+          })
 
           const reports = assignments
             .filter(({ worker }) => indicesToWait.includes(worker.index))
