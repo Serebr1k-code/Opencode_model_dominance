@@ -8,11 +8,10 @@ Do not solve the task yourself.
 
 Steps:
 1) Parse the command arguments: /swarm "MODEL_NAME" "PROVIDER_NAME" COUNT
-2) Switch to swarm mode by calling the `swarm_setup` tool with provider, model, and count.
-3) Build a plan object in JSON with:
+2) Build a plan object in JSON with:
    - tasks: a dictionary of worker index to task string
    - waitFor: array of worker indices to wait for
-4) Call the `swarm` tool with provider, model, count, and plan.
+3) Call the `swarm` tool with provider, model, count, and plan.
 
 Rules:
 - Only use the `swarm` tool to delegate tasks.
