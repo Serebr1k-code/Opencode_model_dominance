@@ -1,13 +1,11 @@
 import fs from "node:fs"
 import path from "node:path"
 import { tool } from "@opencode-ai/plugin"
-import { z } from "zod" // 👈 Добавьте этот импорт
 
 let sharedClient = null
 
 const swarmState = new Map()
 const workerReports = new Map()
-
 const DEFAULT_BASE_PROMPT = `You are a small helper model.\nBe concise and practical.\nOnly return details when asked.\nUse the report tool to send short summaries.`
 
 const normalize = (value) => (value ?? "").toString().trim().toLowerCase()
@@ -168,14 +166,25 @@ const sendWorkerTask = async ({ worker, providerID, modelID, task, mainSessionID
 }
 
 const parsePlan = (plan) => {
-  if (!plan || typeof plan !== "object") {
+  if (plan === undefined || plan === null || plan === "") {
+    throw new Error("plan is required")
+  }
+  let data = plan
+  if (typeof data === "string") {
+    try {
+      data = JSON.parse(data)
+    } catch (error) {
+      throw new Error("plan must be valid JSON")
+    }
+  }
+  if (!data || typeof data !== "object") {
     throw new Error("plan must be an object")
   }
-  const tasks = plan.tasks
+  const tasks = data.tasks
   if (!tasks || typeof tasks !== "object") {
     throw new Error("plan.tasks must be an object mapping worker indexes to tasks")
   }
-  const waitFor = Array.isArray(plan.waitFor) ? plan.waitFor : []
+  const waitFor = Array.isArray(data.waitFor) ? data.waitFor : []
   return { tasks, waitFor }
 }
 
@@ -209,6 +218,8 @@ const formatReports = (reports, providerName, modelName) => {
   return `Swarm reports (${providerName}/${modelName}):\n\n${text}`
 }
 
+
+
 export const SwarmPlugin = async ({ client }) => {
   sharedClient = client
 
@@ -218,22 +229,19 @@ export const SwarmPlugin = async ({ client }) => {
         description:
           "Dispatch tasks to small models based on a plan and collect their reports.",
         args: {
-          provider: z.string().describe("Provider name or id"), // 👈 Используем z вместо tool.schema
-          model: z.string().describe("Model name or id"), // 👈 Используем z вместо tool.schema
-          count: z
+          provider: tool.schema.string().describe("Provider name or id"),
+          model: tool.schema.string().describe("Model name or id"),
+          count: tool.schema
             .number()
             .int()
             .min(1)
             .max(10)
-            .describe("How many workers to spawn"), // 👈 Используем z вместо tool.schema
-          plan: z
-            .object({
-              tasks: z.record(z.string()),
-              waitFor: z.array(z.number().int()).optional(),
-            })
+            .describe("How many workers to spawn"),
+          plan: tool.schema
+            .any()
             .describe(
-              "Plan with tasks per worker index and which workers to wait for",
-            ), // 👈 Используем z вместо tool.schema
+              "Plan object: { tasks: { [index]: string }, waitFor?: number[] }",
+            ),
         },
         async execute(args, context) {
           const { provider, model, count, plan } = args
@@ -283,12 +291,10 @@ export const SwarmPlugin = async ({ client }) => {
         description:
           "Workers call this to send a short report back to the main model.",
         args: {
-          mainSessionID: z
+          mainSessionID: tool.schema
             .string()
-            .describe("Session id of the main model"), // 👈 Используем z вместо tool.schema
-          summary: z
-            .string()
-            .describe("Short summary of results"), // 👈 Используем z вместо tool.schema
+            .describe("Session id of the main model"),
+          summary: tool.schema.string().describe("Short summary of results"),
         },
         async execute(args, context) {
           const { mainSessionID, summary } = args
