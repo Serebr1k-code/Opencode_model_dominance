@@ -8,9 +8,6 @@ const swarmState = new Map()
 const workerReports = new Map()
 const DEFAULT_BASE_PROMPT = `You are a small helper model.\nBe concise and practical.\nOnly return details when asked.\nUse the report tool to send short summaries.`
 
-const DEFAULT_AGENTS_PROMPT = `# AGENTS.md\n\n## Purpose\nYou are the main agent for CTF tasks on the user's server. You orchestrate work, review results from small agents, and produce the final solution and write-up.\n\n## Core rules\n- Use small agents for reconnaissance and specialist subtasks. Delegate early.\n- After solving each task, document the full solution in README.md.\n- When you obtain a flag, share it with the user and ask for feedback before proceeding.\n\n## Dependencies\n- Use uv add to add dependencies, uv remove to remove them, uv run to run files.\n- If uv isn't installed, run curl -LsSf https://astral.sh/uv/install.sh | sh then source the env:\n  - sh/bash/zsh: source $HOME/.local/bin/env\n  - fish: source $HOME/.local/bin/env.fish\n\n## SecLists\n- SecLists are in $SECLISTS.\n- Check $SECLISTS/README.md for useful paths.\n\n## Category rules\nFollow category-specific rules strictly.\n\n### Reverse and PWN\n- Use ida-pro-mcp.\n- For pwn, use uv add pwntools.\n- Inspect decompilation and add comments with findings.\n- Rename variables and functions to be descriptive; adjust types if needed.\n- If more detail is necessary, disassemble and add comments with findings.\n- Never convert number bases manually; use Python for conversions.\n- Do not brute-force; derive solutions from disassembly and simple scripts.\n\n### Web and Pentest\n- Do not brute-force manually with curl or custom Python; prefer ffuf and feroxbuster.\n- Pipeline: nmap -sV -sC, searchsploit <service> <version>, uv add sploitscan, sploitscan <CVE>.\n- For exploits, implement payloads in a Python script rather than invoking exploit tools directly.\n\n### Crypto\n- Favor symbolic reasoning and Python scripts; use sage or sympy via uv add when available.\n- Never brute-force large keyspaces; look for mathematical weaknesses.\n- Document assumptions, equations, and scripts in README.md.\n\n### Forensics\n- Capture timestamps, hashes, and metadata during acquisition before analysis.\n- Use uv add volatility-framework or other tools; follow their official docs for plugins.\n- Automate repetitive extraction with Python helpers for reproducible results.\n`
-
-const DEFAULT_SMALL_PROMPT = `# SMALL_AGENTS.md\n\nYou are a small helper model working for the main agent on CTF tasks.\n\n## Behavior\n- Be concise and practical. Minimize verbosity.\n- Do not produce final solutions or flags unless explicitly asked.\n- Use tools freely; cost is not a concern for you.\n- Keep answers short and structured: findings, evidence, next steps.\n\n## Reporting\n- When you finish a subtask, call swarm_report with a 3-7 line summary.\n- Include concrete evidence: commands run, key outputs, file paths, hashes, or URLs.\n- If you need input from the main agent, ask a direct question in the report.\n\n## Constraints\n- Follow category-specific rules from the main agent.\n- Do not brute-force unless explicitly instructed.\n\n## Preferred format for report\n\n1) What I did\n2) Key findings\n3) Evidence (commands/output/paths)\n4) Suggested next step\n`
 
 const normalize = (value) => (value ?? "").toString().trim().toLowerCase()
 
@@ -18,15 +15,6 @@ const getFields = (result) => {
   if (!result) return {}
   if (typeof result === "object" && "data" in result && result.data) return result.data
   return result
-}
-
-const extractText = (parts) => {
-  if (!Array.isArray(parts)) return ""
-  return parts
-    .filter((part) => part && part.type === "text")
-    .map((part) => part.text)
-    .join("\n")
-    .trim()
 }
 
 const matchBest = (input, items, fields) => {
@@ -59,36 +47,13 @@ const matchBest = (input, items, fields) => {
 }
 
 const readSmallAgentsPrompt = (worktree) => {
+  if (!worktree) return DEFAULT_BASE_PROMPT
   const filePath = path.join(worktree, "SMALL_AGENTS.md")
   if (!fs.existsSync(filePath)) return DEFAULT_BASE_PROMPT
   const content = fs.readFileSync(filePath, "utf8").trim()
   return content.length ? content : DEFAULT_BASE_PROMPT
 }
 
-const ensureAgentFiles = (worktree) => {
-  if (!worktree || worktree === "/") return
-  let stats = null
-  try {
-    stats = fs.statSync(worktree)
-  } catch (error) {
-    return
-  }
-  if (!stats.isDirectory()) return
-
-  const agentsPath = path.join(worktree, "AGENTS.md")
-  const smallPath = path.join(worktree, "SMALL_AGENTS.md")
-
-  try {
-    if (!fs.existsSync(agentsPath)) {
-      fs.writeFileSync(agentsPath, DEFAULT_AGENTS_PROMPT, "utf8")
-    }
-    if (!fs.existsSync(smallPath)) {
-      fs.writeFileSync(smallPath, DEFAULT_SMALL_PROMPT, "utf8")
-    }
-  } catch (error) {
-    return
-  }
-}
 
 const resolveProviderModel = async (providerInput, modelInput) => {
   if (!sharedClient) throw new Error("Swarm plugin not initialized")
@@ -229,12 +194,18 @@ const selectWorkers = (pool, tasks) => {
     }
     selected.push({ worker: pool[index - 1], task: task.trim() })
   }
+  if (!selected.length) {
+    throw new Error("Plan tasks were empty; nothing to dispatch")
+  }
   return selected
 }
 
 const formatReports = (reports, providerName, modelName) => {
   if (!reports.length) {
-    return `Swarm reports (${providerName}/${modelName}):\nNo reports yet.`
+    throw new Error(
+      `No swarm reports received yet (${providerName}/${modelName}). ` +
+        "Workers must call swarm_report before results can be returned.",
+    )
   }
 
   const text = reports
@@ -253,12 +224,6 @@ export const SwarmPlugin = async ({ client }) => {
   sharedClient = client
 
   return {
-    event: async ({ event }) => {
-      if (event?.type === "session.created") {
-        const worktree = event?.properties?.worktree
-        if (worktree) ensureAgentFiles(worktree)
-      }
-    },
     tool: {
       swarm: tool({
         description:
@@ -279,7 +244,6 @@ export const SwarmPlugin = async ({ client }) => {
             ),
         },
         async execute(args, context) {
-          ensureAgentFiles(context.worktree ?? context.directory)
           const { provider, model, count, plan } = args
           const { providerID, modelID, providerName, modelName } =
             await resolveProviderModel(provider, model)
