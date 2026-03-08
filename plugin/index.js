@@ -55,18 +55,31 @@ const readSmallAgentsPrompt = (worktree) => {
 }
 
 
+const toArray = (value) => {
+  if (Array.isArray(value)) return value
+  if (value && typeof value === "object") return Object.values(value)
+  return []
+}
+
 const resolveProviderModel = async (providerInput, modelInput) => {
   if (!sharedClient) throw new Error("Swarm plugin not initialized")
   const result = await sharedClient.config.providers()
   const data = getFields(result)
-  const providers = data.providers ?? []
+  const providers = toArray(data.providers)
+  if (!providers.length) {
+    throw new Error("No providers available from config")
+  }
 
   const providerMatch = matchBest(providerInput, providers, ["id", "name", "label"])
   if (!providerMatch) {
     throw new Error(`Provider not found: ${providerInput}`)
   }
 
-  const models = providerMatch.models ?? []
+  const models = toArray(providerMatch.models)
+  if (!models.length) {
+    throw new Error(`No models available for provider '${providerMatch.id ?? providerMatch.name}'`)
+  }
+
   const modelMatch = matchBest(modelInput, models, ["id", "name", "label"])
   if (!modelMatch) {
     throw new Error(`Model not found in provider '${providerMatch.id ?? providerMatch.name}': ${modelInput}`)
