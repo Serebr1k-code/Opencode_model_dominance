@@ -1,0 +1,17 @@
+pkgname=opencode-swarm-plugin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="OpenCode /swarm plugin for multi-model delegation"
+arch=(any)
+url="https://github.com/yourname/opencode-swarm-plugin"
+license=(MIT)
+depends=(bash)
+source=("$pkgname-$pkgver.tar.gz::https://github.com/yourname/opencode-swarm-plugin/archive/v$pkgver.tar.gz")
+sha256sums=("SKIP")
+
+package() {
+  install -Dm755 "${srcdir}/$pkgname-$pkgver/scripts/install.sh" "${pkgdir}/usr/share/opencode-swarm-plugin/install.sh"
+  install -Dm644 "${srcdir}/$pkgname-$pkgver/plugin/index.js" "${pkgdir}/usr/share/opencode-swarm-plugin/index.js"
+  install -Dm644 "${srcdir}/$pkgname-$pkgver/commands/swarm.md" "${pkgdir}/usr/share/opencode-swarm-plugin/swarm.md"
+  install -Dm644 "${srcdir}/$pkgname-$pkgver/plugin/package.json" "${pkgdir}/usr/share/opencode-swarm-plugin/package.json"
+}
