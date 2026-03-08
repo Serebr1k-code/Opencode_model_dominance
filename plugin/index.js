@@ -168,7 +168,9 @@ const parsePlan = (plan) => {
     try {
       data = JSON.parse(data)
     } catch (error) {
-      throw new Error("plan must be valid JSON")
+      throw new Error(
+        "plan must be valid JSON string, e.g. {\"tasks\":{\"1\":\"...\"},\"waitFor\":[1]}",
+      )
     }
   }
   if (!data || typeof data !== "object") {
