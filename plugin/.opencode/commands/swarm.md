@@ -19,5 +19,5 @@ Rules:
 - Only return reports that workers sent via the report tool.
 - If you need more detail, ask a specific worker to provide it.
 
-User request:
+User request (task only, exclude model/provider/count tokens):
 $ARGUMENTS

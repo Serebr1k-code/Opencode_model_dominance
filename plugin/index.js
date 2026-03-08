@@ -66,15 +66,27 @@ const readSmallAgentsPrompt = (worktree) => {
 }
 
 const ensureAgentFiles = (worktree) => {
-  if (!worktree) return
+  if (!worktree || worktree === "/") return
+  let stats = null
+  try {
+    stats = fs.statSync(worktree)
+  } catch (error) {
+    return
+  }
+  if (!stats.isDirectory()) return
+
   const agentsPath = path.join(worktree, "AGENTS.md")
   const smallPath = path.join(worktree, "SMALL_AGENTS.md")
 
-  if (!fs.existsSync(agentsPath)) {
-    fs.writeFileSync(agentsPath, DEFAULT_AGENTS_PROMPT, "utf8")
-  }
-  if (!fs.existsSync(smallPath)) {
-    fs.writeFileSync(smallPath, DEFAULT_SMALL_PROMPT, "utf8")
+  try {
+    if (!fs.existsSync(agentsPath)) {
+      fs.writeFileSync(agentsPath, DEFAULT_AGENTS_PROMPT, "utf8")
+    }
+    if (!fs.existsSync(smallPath)) {
+      fs.writeFileSync(smallPath, DEFAULT_SMALL_PROMPT, "utf8")
+    }
+  } catch (error) {
+    return
   }
 }
 
