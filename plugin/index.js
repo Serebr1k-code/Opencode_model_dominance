@@ -1,6 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { tool } from "@opencode-ai/plugin"
+import { z } from "zod" // 👈 Добавьте этот импорт
 
 let sharedClient = null
 
@@ -217,22 +218,22 @@ export const SwarmPlugin = async ({ client }) => {
         description:
           "Dispatch tasks to small models based on a plan and collect their reports.",
         args: {
-          provider: tool.schema.string().describe("Provider name or id"),
-          model: tool.schema.string().describe("Model name or id"),
-          count: tool.schema
+          provider: z.string().describe("Provider name or id"), // 👈 Используем z вместо tool.schema
+          model: z.string().describe("Model name or id"), // 👈 Используем z вместо tool.schema
+          count: z
             .number()
             .int()
             .min(1)
             .max(10)
-            .describe("How many workers to spawn"),
-          plan: tool.schema
+            .describe("How many workers to spawn"), // 👈 Используем z вместо tool.schema
+          plan: z
             .object({
-              tasks: tool.schema.record(tool.schema.string()),
-              waitFor: tool.schema.array(tool.schema.number().int()).optional(),
+              tasks: z.record(z.string()),
+              waitFor: z.array(z.number().int()).optional(),
             })
             .describe(
               "Plan with tasks per worker index and which workers to wait for",
-            ),
+            ), // 👈 Используем z вместо tool.schema
         },
         async execute(args, context) {
           const { provider, model, count, plan } = args
@@ -282,12 +283,12 @@ export const SwarmPlugin = async ({ client }) => {
         description:
           "Workers call this to send a short report back to the main model.",
         args: {
-          mainSessionID: tool.schema
+          mainSessionID: z
             .string()
-            .describe("Session id of the main model"),
-          summary: tool.schema
+            .describe("Session id of the main model"), // 👈 Используем z вместо tool.schema
+          summary: z
             .string()
-            .describe("Short summary of results"),
+            .describe("Short summary of results"), // 👈 Используем z вместо tool.schema
         },
         async execute(args, context) {
           const { mainSessionID, summary } = args
