@@ -15,10 +15,10 @@ Restart OpenCode after installation.
 1) Create a `SMALL_AGENTS.md` file in the project root where you run `opencode`.
    This becomes the base prompt for small models.
 
-2) Run the command:
+2) Run the command and include the task in the same line:
 
 ```text
-/swarm "GPT-5 Mini" "Copilot Pool" 5
+/swarm "GPT-5 Mini" "Copilot Pool" 5 Your task goes here
 ```
 
 Arguments:

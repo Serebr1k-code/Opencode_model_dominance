@@ -1,5 +1,7 @@
 ---
-description: Dispatch task to multiple small models
+description: |-
+  /swarm "MODEL" "PROVIDER" COUNT <task>
+  Example: /swarm "GPT-5 Mini" "Copilot Pool" 5 find endpoints
 ---
 You are in swarm mode.
 Do not solve the task yourself.
